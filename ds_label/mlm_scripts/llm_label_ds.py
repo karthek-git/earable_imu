@@ -1,4 +1,5 @@
 import json
+import os
 
 import cv2
 import pandas as pd
@@ -9,14 +10,14 @@ import prompts
 
 
 def inf(processor, model, img):
-    inputs = processor(prompts.prompt, img, return_tensors="pt")
+    inputs = processor(prompts.prompt, img, return_tensors="pt").to("cuda")
     output = model.generate(**inputs, max_new_tokens=1000)
     r = processor.decode(output[0], skip_special_tokens=True)
 
     return r
 
 
-def inf_frame(processor, model, cap, ds, frame_index):
+def inf_frame(processor, model, cap, ds, sampling_time, frame_index):
     frame_index = round(frame_index)
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
     ret, frame = cap.read()
@@ -27,10 +28,39 @@ def inf_frame(processor, model, cap, ds, frame_index):
     outp = inf(processor, model, rgb_frame)
     r = json.loads(
         outp.split("ASSISTANT: ```json")[1].rstrip("```"))["Direction"]
-    print(f"frame {frame_index}: {r}")
-    ds.loc[frame_index] = (frame_index, r)
+    print(f"{sampling_time} frame {frame_index}: {r}")
+    ds.loc[frame_index] = (sampling_time, r)
 
     return True, r
+
+
+def proc_vid(processor, model, ds, sampling_time, fname):
+    print("Video: " + fname)
+    cap = cv2.VideoCapture(fname, cv2.CAP_ANY)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    cur_sec = 1
+
+    while cap.isOpened():
+        ret, f_d = inf_frame(processor, model, cap, ds, sampling_time,
+                             (cur_sec - 1) * fps)
+
+        if not ret:
+            break
+
+        ret, m_d = inf_frame(processor, model, cap, ds, sampling_time, fps / 2)
+
+        if not ret:
+            break
+
+        ret, l_d = inf_frame(processor, model, cap, ds, sampling_time,
+                             (cur_sec * fps) - 1)
+
+        if not ret:
+            break
+
+        sampling_time += pd.Timedelta(seconds=cur_sec)
+        cur_sec += 1
 
 
 def main():
@@ -44,32 +74,21 @@ def main():
         low_cpu_mem_usage=True,
         device_map="auto")
 
-    ds = pd.DataFrame(columns=("Sampling time", "Direction"))
-    ds['Sampling time'] = pd.to_datetime(ds['Sampling time'])
+    ds_dir = "ds/video"
 
-    cap = cv2.VideoCapture("ds/vid.mp4", cv2.CAP_ANY)
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    for dname in sorted(os.listdir(ds_dir)):
+        v_dir = os.path.join(ds_dir, dname)
 
-    cur_sec = 1
+        ds = pd.DataFrame(columns=("Sampling time", "Direction"))
+        ds['Sampling time'] = pd.to_datetime(ds['Sampling time'])
 
-    while cap.isOpened():
-        ret, f_d = inf_frame(processor, model, cap, ds, (cur_sec - 1) * fps)
+        for fname in sorted(os.listdir(v_dir)):
+            v_fname = os.path.join(v_dir, fname)
+            sampling_time = pd.to_datetime(fname.rstrip("B.mp4"),
+                                           format="%Y%m%d_%H%M%S")
+            proc_vid(processor, model, ds, sampling_time, v_fname)
 
-        if not ret:
-            break
-
-        ret, m_d = inf_frame(processor, model, cap, ds, fps / 2)
-
-        if not ret:
-            break
-
-        ret, l_d = inf_frame(processor, model, cap, ds, (cur_sec * fps) - 1)
-
-        if not ret:
-            break
-        cur_sec += 1
-
-    ds.to_csv("d_labels.csv")
+        ds.to_csv(os.path.join(v_dir, "d_labels.csv"))
 
 
 if __name__ == "__main__":
