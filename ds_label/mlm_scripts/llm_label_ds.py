@@ -1,4 +1,5 @@
 import json
+import math
 import os
 
 import cv2
@@ -26,8 +27,13 @@ def inf_frame(processor, model, cap, ds, sampling_time, frame_index):
         return False, ""
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     outp = inf(processor, model, rgb_frame)
-    r = json.loads(
-        outp.split("ASSISTANT: ```json")[1].rstrip("```"))["Direction"]
+
+    try:
+        r = json.loads(
+            outp.split("ASSISTANT: ```json")[1].rstrip("```"))["Direction"]
+    except Exception:
+        return False, ""
+
     print(f"{sampling_time} frame {frame_index}: {r}")
     ds.loc[frame_index] = (sampling_time, r)
 
@@ -48,7 +54,8 @@ def proc_vid(processor, model, ds, sampling_time, fname):
         if not ret:
             break
 
-        ret, m_d = inf_frame(processor, model, cap, ds, sampling_time, fps / 2)
+        ret, m_d = inf_frame(processor, model, cap, ds, sampling_time,
+                             math.floor(((cur_sec - 1) * fps) + (fps / 2)))
 
         if not ret:
             break
@@ -59,7 +66,7 @@ def proc_vid(processor, model, ds, sampling_time, fname):
         if not ret:
             break
 
-        sampling_time += pd.Timedelta(seconds=cur_sec)
+        sampling_time += pd.Timedelta(seconds=1)
         cur_sec += 1
 
 
