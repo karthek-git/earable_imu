@@ -22,3 +22,36 @@ You only speak JSON. DO not write any text that isn't JSON. So, Your output must
 '''
 
 prompt = f"A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. USER: <image>\n{instr_prompt} ASSISTANT:"
+
+instr_prompt_m = '''This is a video of car driver taken during driving from front left corner of the car. You need to detect whether his mouth is closed or talking or yawning.
+
+You only speak JSON. DO not write any text that isn't JSON. So, Your output must be in the following JSON format:
+{ "Mouth" : Closed or Talking or Yawning }
+'''
+
+mlm_m_conv = [
+    {
+        "role":
+        "system",
+        "content": [
+            {
+                "type":
+                "text",
+                "text":
+                "You are a helpful assistant. You need to help me detect the activity of car driver mouth while driving."
+            },
+        ],
+    },
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": instr_prompt_m
+            },
+            {
+                "type": "video"
+            },
+        ],
+    },
+]
