@@ -35,7 +35,7 @@ def inf_frames(processor, model, ds, sampling_time, frame_index, frames):
         return False, ""
 
     print(f"{sampling_time} frame {frame_index}: {r}")
-    ds.loc[frame_index] = (sampling_time, r)
+    ds.loc[sampling_time] = (r, )
 
 
 def proc_vid(processor, model, ds, sampling_time, fpath):
@@ -92,8 +92,7 @@ def main():
     for dname in sorted(os.listdir(ds_dir)):
         v_dir = os.path.join(ds_dir, dname)
 
-        ds = pd.DataFrame(columns=("Sampling time", "Mouth"))
-        ds['Sampling time'] = pd.to_datetime(ds['Sampling time'])
+        ds = pd.DataFrame(columns=("Mouth", ))
 
         for fname in sorted(os.listdir(v_dir)):
             v_fname = os.path.join(v_dir, fname)
