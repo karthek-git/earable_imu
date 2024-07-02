@@ -35,7 +35,7 @@ def inf_frame(processor, model, cap, ds, sampling_time, frame_index):
         return False, ""
 
     print(f"{sampling_time} frame {frame_index}: {r}")
-    ds.loc[frame_index] = (sampling_time, r)
+    ds.loc[sampling_time] = (r, )
 
     return True, r
 
@@ -73,11 +73,18 @@ def proc_vid(processor, model, ds, sampling_time, fname):
 def main():
     pretrained_model = "llava-hf/llava-v1.6-vicuna-7b-hf"
 
+    quantization_config = transformers.BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16)
+
     processor = transformers.LlavaNextProcessor.from_pretrained(
         pretrained_model)
     model = transformers.LlavaNextForConditionalGeneration.from_pretrained(
         pretrained_model,
         torch_dtype=torch.float16,
+        #quantization_config=quantization_config,
+        #attn_implementation="flash_attention_2",
         low_cpu_mem_usage=True,
         device_map="auto")
 
@@ -86,8 +93,7 @@ def main():
     for dname in sorted(os.listdir(ds_dir)):
         v_dir = os.path.join(ds_dir, dname)
 
-        ds = pd.DataFrame(columns=("Sampling time", "Direction"))
-        ds['Sampling time'] = pd.to_datetime(ds['Sampling time'])
+        ds = pd.DataFrame(columns=("Direction", ))
 
         for fname in sorted(os.listdir(v_dir)):
             v_fname = os.path.join(v_dir, fname)
