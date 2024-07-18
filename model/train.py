@@ -1,4 +1,5 @@
 import os
+import pathlib
 import time
 
 import numpy as np
@@ -63,6 +64,17 @@ def reshape_ds(x, y):
     return x, y
 
 
+def tflite_convert(model: tf.keras.Model):
+    """Convert model to quantized tflite model with optimizations."""
+
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tflite_model = converter.convert()
+    pathlib.Path("artifacts/models/gic_uint8_v1.tflite").write_bytes(
+        tflite_model)
+
+    return tflite_model
+
+
 def main():
     ds_lbls = []
     dir_name = "ds/ds_labels/"
@@ -107,6 +119,7 @@ def main():
               callbacks=callbacks,
               validation_data=(x_val_r, y_val_r))
     model.evaluate(x_test_r, y_test_r)
+    tflite_convert(model)
 
 
 if __name__ == "__main__":
